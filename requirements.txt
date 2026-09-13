@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pydantic
+requests
+langchain-core
+langchain-huggingface
+langchain-community
+faiss-cpu

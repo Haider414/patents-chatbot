@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مساعد براءات الاختراع الجامعي</title>
+    <style>
+        :root {
+            --primary-color: #004d40;
+            --secondary-color: #00796b;
+            --bg-color: #f4f6f9;
+            --chat-bg: #ffffff;
+            --user-msg: #004d40;
+            --bot-msg: #f1f3f4;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 650px;
+            height: 85vh;
+            background: var(--chat-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 75%;
+            padding: 12px 16px;
+            border-radius: 15px;
+            line-height: 1.5;
+            font-size: 0.95rem;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background-color: var(--primary-color);
+            color: white;
+            align-self: flex-end;
+            border-bottom-left-radius: 4px;
+        }
+
+        .bot-message {
+            background-color: var(--bot-msg);
+            color: #333;
+            align-self: flex-start;
+            border-bottom-right-radius: 4px;
+        }
+
+        .typing-indicator {
+            display: none;
+            align-self: flex-start;
+            background-color: var(--bot-msg);
+            color: #666;
+            padding: 10px 15px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-style: italic;
+        }
+
+        .chat-input-area {
+            display: flex;
+            padding: 15px;
+            background: #ffffff;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            outline: none;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+
+        .chat-input-area input:focus {
+            border-color: var(--primary-color);
+        }
+
+        .chat-input-area button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0 20px;
+            margin-right: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+
+        .chat-input-area button:hover {
+            background-color: var(--secondary-color);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="chat-container">
+        <div class="chat-header">
+            المساعد الذكي لبراءات الاختراع الجامعية
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot-message">مرحباً بك! أنا مساعدك الذكي لاستفسارات براءات الاختراع. كيف يمكنني خدمتك
+                اليوم؟</div>
+        </div>
+
+        <div class="typing-indicator" id="typingIndicator">البوت يقرأ قاعدة البيانات ويجهز الرد...</div>
+
+        <div class="chat-input-area">
+            <input type="text" id="userInput" placeholder="اكتب سؤالك هنا (مثال: ما هو نظام الري؟)..."
+                onkeypress="handleKeyPress(event)">
+            <button onclick="sendMessage()">إرسال</button>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chatMessages');
+        const userInput = document.getElementById('userInput');
+        const typingIndicator = document.getElementById('typingIndicator');
+
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            // إضافة رسالة المستخدم للواجهة
+            appendMessage(text, 'user-message');
+            userInput.value = '';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            // إظهار مؤشر الكتابة
+            typingIndicator.style.display = 'block';
+
+            try {
+                const response = await fetch('http://localhost:8000/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ user_message: text })
+                });
+
+                const data = await response.json();
+
+                // إخفاء مؤشر الكتابة
+                typingIndicator.style.display = 'none';
+
+                if (response.ok) {
+                    appendMessage(data.response, 'bot-message');
+                } else {
+                    appendMessage('عذراً، حدث خطأ في الخادم.', 'bot-message');
+                }
+            } catch (error) {
+                typingIndicator.style.display = 'none';
+                appendMessage('تعذر الاتصال بالخادم. تأكد من تشغيل FastAPI.', 'bot-message');
+            }
+
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function appendMessage(text, className) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${className}`;
+            messageDiv.innerText = text;
+            chatMessages.appendChild(messageDiv);
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+    </script>
+
+</body>
+
+</html>
