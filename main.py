@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import UploadFile, File
 import shutil
+import base64
 
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
@@ -99,40 +100,60 @@ async def chat_endpoint(request: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_REPO = os.getenv("GITHUB_REPO", "Haider414/patents-chatbot")
+
 @app.post("/upload-patent")
 async def upload_patent(file: UploadFile = File(...)):
     try:
-        # حفظ الملف المرفوع محلياً
-        file_path = file.filename
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # 1. قراءة محتوى الملف المرفوع
+        content_bytes = await file.read()
+        file_content_str = content_bytes.decode("utf-8")
+        new_data = json.loads(file_content_str)
         
-        # قراءة البيانات الجديدة ودمجها مع الملف الأصلي
-        with open(file_path, "r", encoding="utf-8") as f:
-            new_data = json.load(f)
-            
+        # 2. قراءة البيانات الحالية ودمجها في الذاكرة
         try:
             with open("patents.json", "r", encoding="utf-8") as f:
                 existing_data = json.load(f)
         except Exception:
             existing_data = []
             
-        # دمج البيانات الجديدة وتحديث الملف
         combined_data = existing_data + (new_data if isinstance(new_data, list) else [new_data])
+        
+        # 3. تحديث الملف محلياً في الذاكرة والخادم مؤقتاً
         with open("patents.json", "w", encoding="utf-8") as f:
             json.dump(combined_data, f, ensure_ascii=False, indent=4)
             
-        # إعادة بناء وتحديث الفهرس المتجهي (FAISS)
+        # 4. تحديث فهرس المتجهات (FAISS) فوراً لتصبح البراءة قابلة للبحث في نفس اللحظة
         global vectorstore, retriever, qa_chain
         documents = [Document(page_content=json.dumps(item, ensure_ascii=False)) for item in combined_data]
         vectorstore = FAISS.from_documents(documents, embeddings)
         vectorstore.save_local("faiss_index")
         retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
-        
-        # إعادة ربط سلسلة المعالجة
-        global qa_chain
         qa_chain = prompt | llm | StrOutputParser()
         
-        return {"status": "success", "message": "تم رفع وتحديث البراءة بنجاح!"}
+        # 5. رفع الملف المحدث تلقائياً إلى GitHub في الخلفية لضمان الحفظ الدائم
+        if GITHUB_TOKEN:
+            url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/patents.json"
+            headers = {
+                "Authorization": f"Bearer {GITHUB_TOKEN}",
+                "Accept": "application/vnd.github+json"
+            }
+            # جلب sha الخاص بالملف الحالي على GitHub لكي يتم تحديثه
+            get_res = requests.get(url, headers=headers)
+            sha = get_res.json().get("sha") if get_res.status_code == 200 else None
+            
+            # تشفير محتوى الملف الجديد بـ Base64
+            encoded_content = base64.b64encode(json.dumps(combined_data, ensure_ascii=False, indent=4).encode("utf-8")).decode("utf-8")
+            
+            payload = {
+                "message": f"Auto-update patents.json via web UI ({file.filename})",
+                "content": encoded_content,
+                "sha": sha
+            }
+            if sha:
+                requests.put(url, headers=headers, json=payload)
+
+        return {"status": "success", "message": "تم رفع وتحديث البراءة والبحث فيها فوراً، وحفظها على السحاب بنجاح!"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code.status_code if hasattr(e, 'status_code') else 500, detail=str(e))
