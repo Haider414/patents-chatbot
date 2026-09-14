@@ -3,6 +3,8 @@ import json
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import UploadFile, File
+import shutil
 
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
@@ -94,5 +96,43 @@ async def chat_endpoint(request: ChatRequest):
             "question": request.message
         })
         return {"reply": response}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/upload-patent")
+async def upload_patent(file: UploadFile = File(...)):
+    try:
+        # حفظ الملف المرفوع محلياً
+        file_path = file.filename
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # قراءة البيانات الجديدة ودمجها مع الملف الأصلي
+        with open(file_path, "r", encoding="utf-8") as f:
+            new_data = json.load(f)
+            
+        try:
+            with open("patents.json", "r", encoding="utf-8") as f:
+                existing_data = json.load(f)
+        except Exception:
+            existing_data = []
+            
+        # دمج البيانات الجديدة وتحديث الملف
+        combined_data = existing_data + (new_data if isinstance(new_data, list) else [new_data])
+        with open("patents.json", "w", encoding="utf-8") as f:
+            json.dump(combined_data, f, ensure_ascii=False, indent=4)
+            
+        # إعادة بناء وتحديث الفهرس المتجهي (FAISS)
+        global vectorstore, retriever, qa_chain
+        documents = [Document(page_content=json.dumps(item, ensure_ascii=False)) for item in combined_data]
+        vectorstore = FAISS.from_documents(documents, embeddings)
+        vectorstore.save_local("faiss_index")
+        retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
+        
+        # إعادة ربط سلسلة المعالجة
+        global qa_chain
+        qa_chain = prompt | llm | StrOutputParser()
+        
+        return {"status": "success", "message": "تم رفع وتحديث البراءة بنجاح!"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
