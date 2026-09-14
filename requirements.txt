@@ -7,3 +7,4 @@ langchain-core
 langchain-community
 langchain-google-genai
 faiss-cpu
+python-multipart
