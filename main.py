@@ -26,8 +26,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=API_KEY)
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=API_KEY, temperature=0.3)
+# تم التحديث هنا للنماذج الصحيحة لعام 2026 بناءً على توجيهك
+embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-2-preview", google_api_key=API_KEY)
+llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", google_api_key=API_KEY, temperature=0.3)
 
 def initialize_vectorstore():
     index_path = "faiss_index"
@@ -48,10 +49,9 @@ def initialize_vectorstore():
 
 vectorstore = initialize_vectorstore()
 
-# ضبط الاسترجاع مع تحديد 15 نتيجة لضمان دقة البحث
+# تم التصحيح بناءً على طلبك السابق بخصوص المتغيرات
 retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
 
-# بناء سلسلة الاسترجاع الحديثة (LCEL) الموفرة للذاكرة
 template = """استخدم السياق التالي للإجابة على السؤال.
 السياق:
 {context}
