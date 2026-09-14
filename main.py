@@ -52,9 +52,12 @@ vectorstore = initialize_vectorstore()
 # تم التصحيح بناءً على طلبك السابق بخصوص المتغيرات
 retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
 
-template = """استخدم السياق التالي للإجابة على السؤال.
+template = """استخدم السياق وتاريخ المحادثة للإجابة على السؤال بدقة.
 السياق:
 {context}
+
+تاريخ المحادثة:
+{history}
 
 السؤال: {question}
 الإجابة:"""
@@ -63,20 +66,26 @@ prompt = PromptTemplate.from_template(template)
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
-qa_chain = (
-    {"context": retriever | format_docs, "question": RunnablePassthrough()}
-    | prompt
-    | llm
-    | StrOutputParser()
-)
+# تعديل السلسلة لتقبل متغير history
+qa_chain = prompt | llm | StrOutputParser()
 
 class ChatRequest(BaseModel):
     message: str
+    history: str = "" # إضافة متغير السجل
 
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
     try:
-        response = qa_chain.invoke(request.message)
+        # استرجاع المستندات بناءً على السؤال فقط
+        docs = retriever.invoke(request.message)
+        context_text = format_docs(docs)
+        
+        # تمرير السجل، السياق، والسؤال للنموذج
+        response = qa_chain.invoke({
+            "context": context_text,
+            "history": request.history,
+            "question": request.message
+        })
         return {"reply": response}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
