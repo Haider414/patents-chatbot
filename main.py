@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
-from langchain.schema import Document
+from langchain_core.documents import Document
 from langchain.chains import RetrievalQA
 
 # جلب مفتاح API من متغيرات البيئة بأمان
