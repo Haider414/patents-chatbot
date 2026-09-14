@@ -3,7 +3,6 @@ uvicorn
 pydantic
 requests
 langchain-core
-langchain-huggingface
 langchain-community
+langchain-google-genai
 faiss-cpu
-sentence-transformers

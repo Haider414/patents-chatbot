@@ -1,37 +1,19 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-import uvicorn
-from fastapi.middleware.cors import CORSMiddleware
-import json
 import os
-import requests
-
-from langchain_core.documents import Document
-from langchain_huggingface import HuggingFaceEmbeddings
+import json
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 from langchain_community.vectorstores import FAISS
+from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from langchain.schema import Document
+from langchain.chains import RetrievalQA
 
-# 1. مفتاح جوجل الخاص بك
-# قراءة المفتاح بأمان من متغيرات البيئة
+# جلب مفتاح API من متغيرات البيئة بأمان
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
-# 2. قراءة البيانات
-with open("patents.json", "r", encoding="utf-8") as file:
-    patents_data = json.load(file)
+if not API_KEY:
+    raise ValueError("Google API Key is not set in environment variables.")
 
-documents = []
-for patent in patents_data:
-    content = f"رقم الاختراع: {patent['id']}\nعنوان الاختراع: {patent['title']}\nالوصف: {patent['description']}"
-    documents.append(Document(page_content=content))
-
-# 3. التضمين المحلي
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-vector_store = FAISS.from_documents(documents, embeddings)
-retriever = vector_store.as_retriever(search_kwargs={"k": 2})
-
-# مصفوفة لحفظ سجل المحادثة مؤقتاً في الذاكرة
-chat_history = []
-
-# --- إعداد واجهة الـ API ---
 app = FastAPI(title="Patents Chatbot API")
 
 app.add_middleware(
@@ -42,56 +24,51 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class MessageRequest(BaseModel):
-    user_message: str
+# 1. تهيئة التضمينات (Embeddings) والنموذج (LLM) عبر Google لتوفير الذاكرة
+embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=API_KEY)
+llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=API_KEY, temperature=0.3)
+
+# 2. بناء أو تحميل قاعدة بيانات المتجهات (Vector Store)
+def initialize_vectorstore():
+    index_path = "faiss_index"
+    # إذا تم إنشاء القاعدة مسبقاً، سيتم تحميلها مباشرة
+    if os.path.exists(index_path):
+        return FAISS.load_local(index_path, embeddings, allow_dangerous_deserialization=True)
+    else:
+        # قراءة ملف براءات الاختراع وإنشاء القاعدة في حال عدم وجودها
+        try:
+            with open("patents.json", "r", encoding="utf-8") as f:
+                data = json.load(f)
+            
+            # تحويل البيانات إلى مستندات (يفترض أن الملف عبارة عن قائمة كائنات JSON)
+            documents = [Document(page_content=json.dumps(item, ensure_ascii=False)) for item in data]
+            
+            # إنشاء قاعدة FAISS جديدة
+            vectorstore = FAISS.from_documents(documents, embeddings)
+            vectorstore.save_local(index_path)
+            return vectorstore
+        except Exception as e:
+            print(f"Error loading patents.json: {e}")
+            return FAISS.from_texts(["لا توجد بيانات حالياً."], embeddings)
+
+vectorstore = initialize_vectorstore()
+
+# ضبط الاسترجاع لجلب أفضل النتائج
+retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
+
+qa_chain = RetrievalQA.from_chain_type(
+    llm=llm,
+    chain_type="stuff",
+    retriever=retriever
+)
+
+class ChatRequest(BaseModel):
+    message: str
 
 @app.post("/chat")
-async def chat_endpoint(request: MessageRequest):
-    incoming_text = request.user_message
-    
-    # أ. استرجاع المعلومات بناءً على السؤال الحالي
-    relevant_docs = retriever.invoke(incoming_text)
-    context = "\n\n".join(doc.page_content for doc in relevant_docs)
-    
-    # ب. بناء الرسالة الموجهة للنموذج مع دمج السياق
-    system_instruction = (
-        "أنت مساعد ذكي خاص بجامعة للإجابة على استفسارات براءات الاختراع. "
-        "استخدم المعلومات المسترجعة للإجابة بدقة، وإذا لم تكن الإجابة موجودة فاعتذر بلباقة."
-    )
-    
-    current_prompt = (
-        f"{system_instruction}\n\n"
-        f"المعلومات المسترجعة من النظام:\n{context}\n\n"
-        f"سؤال المستخدم الجديد: {incoming_text}"
-    )
-    
-    # ج. تجهيز سجل المحادثة الكامل لإرساله لـ Gemini
-    contents = []
-    for turn in chat_history:
-        contents.append(turn)
-        
-    # إضافة الرسالة الحالية إلى السجل المرسل
-    contents.append({"role": "user", "parts": [{"text": current_prompt}]})
-    
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={API_KEY}"
-    headers = {'Content-Type': 'application/json'}
-    data = {"contents": contents}
-    
+async def chat_endpoint(request: ChatRequest):
     try:
-        response = requests.post(url, headers=headers, json=data)
-        response_json = response.json()
-        
-        ai_reply = response_json['candidates'][0]['content']['parts'][0]['text']
-        
-        # د. حفظ دورة الحوار في الذاكرة لاستخدامها لاحقاً
-        chat_history.append({"role": "user", "parts": [{"text": incoming_text}]})
-        chat_history.append({"role": "model", "parts": [{"text": ai_reply}]})
-        
-        return {"response": ai_reply}
-        
+        response = qa_chain.invoke({"query": request.message})
+        return {"reply": response["result"]}
     except Exception as e:
-        print("خطأ في الاتصال:", response.text)
-        return {"response": "عذراً، حدث خطأ في معالجة الذاكرة السياقية."}
-
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+        raise HTTPException(status_code=500, detail=str(e))
