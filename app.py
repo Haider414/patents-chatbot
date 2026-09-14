@@ -20,7 +20,7 @@ with st.sidebar:
                     if response.status_code == 200:
                         st.success("تم التحديث بنجاح! البوت جاهز للبحث في البراءة الجديدة.")
                     else:
-                        st.error("فشل التحديث من الخادم.")
+                        st.error(f"فشل التحديث! تفاصيل الخطأ: {response.text}")
                 except Exception as e:
                     st.error(f"خطأ في الاتصال: {e}")
 
