@@ -1,12 +1,11 @@
 import os
 import json
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi import UploadFile, File
 import shutil
 import base64
 import requests
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
@@ -20,7 +19,7 @@ API_KEY = os.environ.get("GOOGLE_API_KEY")
 if not API_KEY:
     raise ValueError("Google API Key is not set in environment variables.")
 
-app = FastAPI(title="Patents Chatbot API")
+app = FastAPI(title="Hayy Ibtikar Chatbot API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,68 +29,100 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# تم التحديث هنا للنماذج الصحيحة لعام 2026 بناءً على توجيهك
+# إعداد النماذج
 embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-2-preview", google_api_key=API_KEY)
 llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", google_api_key=API_KEY)
 
-def initialize_vectorstore():
-    index_path = "faiss_index"
-    if os.path.exists(index_path):
-        return FAISS.load_local(index_path, embeddings, allow_dangerous_deserialization=True)
-    else:
-        try:
-            with open("patents.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
+# ==========================================
+# 1. إعداد الذاكرة المتعددة لأقسام حي ابتكار
+# ==========================================
+CATEGORIES = {
+    "patents": {"file": "data/patents.json", "index": "faiss_patents"},
+    "research": {"file": "data/research.json", "index": "faiss_research"},
+    "startups": {"file": "data/startups.json", "index": "faiss_startups"},
+    "investments": {"file": "data/investments.json", "index": "faiss_investments"}
+}
+
+vectorstores = {}
+retrievers = {}
+
+def initialize_category(category_name):
+    """دالة لإنشاء أو تحميل قاعدة البيانات لكل قسم"""
+    file_path = CATEGORIES[category_name]["file"]
+    index_path = CATEGORIES[category_name]["index"]
+    
+    os.makedirs("data", exist_ok=True)
+    
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        data = []
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
             
-            documents = [Document(page_content=json.dumps(item, ensure_ascii=False)) for item in data]
-            vectorstore = FAISS.from_documents(documents, embeddings)
-            vectorstore.save_local(index_path)
-            return vectorstore
-        except Exception as e:
-            print(f"Error loading patents.json: {e}")
-            return FAISS.from_texts(["لا توجد بيانات حالياً."], embeddings)
+    if data:
+        documents = [Document(page_content=json.dumps(item, ensure_ascii=False)) for item in data]
+        vs = FAISS.from_documents(documents, embeddings)
+    else:
+        vs = FAISS.from_texts(["لا توجد بيانات حاليا في هذا القسم لحي ابتكار."], embeddings)
+        
+    vs.save_local(index_path)
+    vectorstores[category_name] = vs
+    retrievers[category_name] = vs.as_retriever(search_kwargs={"k": 15})
 
-vectorstore = initialize_vectorstore()
+@app.on_event("startup")
+async def startup_event():
+    print("جاري تحميل قواعد بيانات حي ابتكار المستقلة...")
+    for cat in CATEGORIES:
+        initialize_category(cat)
+    print("تم تحميل جميع الفهارس بنجاح!")
 
-# تم التصحيح بناءً على طلبك السابق بخصوص المتغيرات
-retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
 
-template = """أنت مساعد ذكي. اتبع هذه القواعد بصرامة:
-1. إذا كان السؤال شخصياً أو مبنياً على حوار سابق (مثل "ما اسمي؟")، استخرج الإجابة من قسم <تاريخ_المحادثة>.
-2. إذا كان السؤال عن الاختراعات، استخرج الإجابة من قسم <سياق_البراءات>.
+# ==========================================
+# 2. إعداد سلسلة المحادثة (Prompt & Chain)
+# ==========================================
+template = """أنت مساعد ذكي لمنصة حي ابتكار. اتبع هذه القواعد بصرامة:
+1. إذا كان السؤال شخصياً أو مبنياً على حوار سابق، استخرج الإجابة من قسم <تاريخ_المحادثة>.
+2. إذا كان السؤال عن الحي (براءات، أبحاث، شركات، استثمارات)، استخرج الإجابة من قسم <سياق_المعلومات>.
 3. لا تقل "السياق لا يحتوي على معلومات" إذا كانت الإجابة موجودة في تاريخ المحادثة.
 
 <تاريخ_المحادثة>
 {history}
 </تاريخ_المحادثة>
 
-<سياق_البراءات>
+<سياق_المعلومات>
 {context}
-</سياق_البراءات>
+</سياق_المعلومات>
 
 السؤال الحالي: {question}
 الإجابة:"""
 
 prompt = PromptTemplate.from_template(template)
+qa_chain = prompt | llm | StrOutputParser()
 
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
-# تعديل السلسلة لتقبل متغير history
-qa_chain = prompt | llm | StrOutputParser()
-
 class ChatRequest(BaseModel):
     message: str
-    history: str = "" # إضافة متغير السجل
+    history: str = "" 
 
+
+# ==========================================
+# 3. مسار الدردشة (الذي سنطوره للوكيل الموجه)
+# ==========================================
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
     try:
-        # استرجاع المستندات بناءً على السؤال فقط
-        docs = retriever.invoke(request.message)
-        context_text = format_docs(docs)
+        # كحل مؤقت قبل برمجة الوكيل الموجه، سنقوم بالبحث في جميع الأقسام
+        all_docs = []
+        for cat in retrievers:
+            docs = retrievers[cat].invoke(request.message)
+            all_docs.extend(docs)
+            
+        context_text = format_docs(all_docs[:15])
         
-        # تمرير السجل، السياق، والسؤال للنموذج
         response = qa_chain.invoke({
             "context": context_text,
             "history": request.history,
@@ -101,60 +132,37 @@ async def chat_endpoint(request: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ==========================================
+# 4. مسار رفع البيانات للأقسام
+# ==========================================
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_REPO = os.getenv("GITHUB_REPO", "Haider414/patents-chatbot")
 
-@app.post("/upload-patent")
-async def upload_patent(file: UploadFile = File(...)):
+@app.post("/upload-data")
+async def upload_data(category: str = Form(...), file: UploadFile = File(...)):
+    if category not in CATEGORIES:
+        raise HTTPException(status_code=400, detail="قسم غير صالح. الرجاء اختيار قسم صحيح.")
+        
     try:
-        # 1. قراءة محتوى الملف المرفوع
         content_bytes = await file.read()
         file_content_str = content_bytes.decode("utf-8")
         new_data = json.loads(file_content_str)
         
-        # 2. قراءة البيانات الحالية ودمجها في الذاكرة
-        try:
-            with open("patents.json", "r", encoding="utf-8") as f:
-                existing_data = json.load(f)
-        except Exception:
-            existing_data = []
+        file_path = CATEGORIES[category]["file"]
+        
+        with open(file_path, "r", encoding="utf-8") as f:
+            existing_data = json.load(f)
             
         combined_data = existing_data + (new_data if isinstance(new_data, list) else [new_data])
         
-        # 3. تحديث الملف محلياً في الذاكرة والخادم مؤقتاً
-        with open("patents.json", "w", encoding="utf-8") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(combined_data, f, ensure_ascii=False, indent=4)
             
-        # 4. تحديث فهرس المتجهات (FAISS) فوراً لتصبح البراءة قابلة للبحث في نفس اللحظة
-        global vectorstore, retriever, qa_chain
-        documents = [Document(page_content=json.dumps(item, ensure_ascii=False)) for item in combined_data]
-        vectorstore = FAISS.from_documents(documents, embeddings)
-        vectorstore.save_local("faiss_index")
-        retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
-        qa_chain = prompt | llm | StrOutputParser()
-        
-        # 5. رفع الملف المحدث تلقائياً إلى GitHub في الخلفية لضمان الحفظ الدائم
-        if GITHUB_TOKEN:
-            url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/patents.json"
-            headers = {
-                "Authorization": f"Bearer {GITHUB_TOKEN}",
-                "Accept": "application/vnd.github+json"
-            }
-            # جلب sha الخاص بالملف الحالي على GitHub لكي يتم تحديثه
-            get_res = requests.get(url, headers=headers)
-            sha = get_res.json().get("sha") if get_res.status_code == 200 else None
-            
-            # تشفير محتوى الملف الجديد بـ Base64
-            encoded_content = base64.b64encode(json.dumps(combined_data, ensure_ascii=False, indent=4).encode("utf-8")).decode("utf-8")
-            
-            payload = {
-                "message": f"Auto-update patents.json via web UI ({file.filename})",
-                "content": encoded_content,
-                "sha": sha
-            }
-            if sha:
-                requests.put(url, headers=headers, json=payload)
+        initialize_category(category)
 
-        return {"status": "success", "message": "تم رفع وتحديث البراءة والبحث فيها فوراً، وحفظها على السحاب بنجاح!"}
+        # يمكننا لاحقاً تفعيل رفع الملفات لـ GitHub لكل قسم بنفس الطريقة
+
+        return {"status": "success", "message": f"تم تحديث بيانات قسم {category} بنجاح!"}
     except Exception as e:
-        raise HTTPException(status_code.status_code if hasattr(e, 'status_code') else 500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
