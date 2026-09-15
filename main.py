@@ -185,18 +185,47 @@ async def upload_data(category: str = Form(...), file: UploadFile = File(...)):
         
         file_path = CATEGORIES[category]["file"]
         
+        # قراءة البيانات الحالية للقسم
         with open(file_path, "r", encoding="utf-8") as f:
             existing_data = json.load(f)
             
         combined_data = existing_data + (new_data if isinstance(new_data, list) else [new_data])
         
+        # 1. حفظ الملف في الذاكرة محلياً
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(combined_data, f, ensure_ascii=False, indent=4)
             
+        # 2. تحديث فهرس القسم المحدد فوراً
         initialize_category(category)
+        
+        # 3. الرفع التلقائي إلى GitHub لضمان حفظ البيانات دائماً
+        if GITHUB_TOKEN and GITHUB_REPO:
+            try:
+                url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{file_path}"
+                headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+                
+                # جلب رقم SHA للملف الحالي إذا كان موجوداً
+                get_response = requests.get(url, headers=headers)
+                sha = ""
+                if get_response.status_code == 200:
+                    sha = get_response.json().get("sha", "")
+                
+                # تجهيز البيانات للرفع
+                updated_content = json.dumps(combined_data, ensure_ascii=False, indent=4)
+                encoded_content = base64.b64encode(updated_content.encode("utf-8")).decode("utf-8")
+                
+                put_data = {
+                    "message": f"Auto-update {category} data via API",
+                    "content": encoded_content,
+                    "branch": "main"
+                }
+                if sha:
+                    put_data["sha"] = sha
+                    
+                requests.put(url, headers=headers, json=put_data)
+            except Exception as gh_error:
+                print(f"خطأ في المزامنة مع جيت هب: {gh_error}")
 
-        # يمكننا لاحقاً تفعيل رفع الملفات لـ GitHub لكل قسم بنفس الطريقة
-
-        return {"status": "success", "message": f"تم تحديث بيانات قسم {category} بنجاح!"}
+        return {"status": "success", "message": f"تم تحديث بيانات قسم {category} وحفظها بنجاح!"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
