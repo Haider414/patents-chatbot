@@ -1,50 +1,83 @@
 import streamlit as st
 import requests
 
-st.set_page_config(page_title="مساعد براءات الاختراع", page_icon="🤖")
-st.title("🤖 مساعد براءات الاختراع الذكي")
+# تأكد من أن هذا هو رابط الخادم الخاص بك على Render
+API_URL = "https://patents-chatbot-1-ufrw.onrender.com" 
 
-API_URL = "https://patents-chatbot-1-ufrw.onrender.com/chat"
-UPLOAD_URL = "https://patents-chatbot-1-ufrw.onrender.com/upload-patent"
+# إعداد الصفحة لتعكس هوية حي ابتكار
+st.set_page_config(page_title="حي ابتكار - البوابة الرقمية", page_icon="💡", layout="centered")
 
-# شريط جانبي لرفع المستندات الحية
+st.title("💡 البوابة الرقمية لحي ابتكار")
+st.write("مرحباً بك في المساعد الذكي لجامعة الإمام عبدالرحمن بن فيصل. يمكنك سؤالي عن براءات الاختراع، الأبحاث، الشركات الناشئة، أو الفرص الاستثمارية.")
+
+# ==========================================
+# القائمة الجانبية: لوحة تحكم إدارة المستندات
+# ==========================================
 with st.sidebar:
-    st.header("📂 إدارة المستندات")
-    uploaded_file = st.file_uploader("ارفع ملف براءة اختراع (JSON)", type=["json"])
-    if uploaded_file is not None:
-        if st.button("رفع وتحديث قاعدة البيانات"):
-            with st.spinner("جاري تحديث الفهرس على السحاب..."):
+    st.header("📂 إدارة مستندات حي ابتكار")
+    
+    # القاموس لربط أسماء الأقسام بالعربية مع المفاتيح الإنجليزية
+    category_options = {
+        "براءات الاختراع والتقنيات": "patents",
+        "المشاريع البحثية والمراكز": "research",
+        "الشركات الناشئة": "startups",
+        "الفرص الاستثمارية": "investments"
+    }
+    
+    # قائمة منسدلة لاختيار القسم
+    selected_display = st.selectbox("اختر القسم الذي تريد تحديثه:", list(category_options.keys()))
+    selected_category = category_options[selected_display]
+    
+    # رفع الملف
+    uploaded_file = st.file_uploader(f"ارفع ملف (JSON) الخاص بـ {selected_display}", type=["json"])
+    
+    if st.button("رفع وتحديث قاعدة البيانات"):
+        if uploaded_file is not None:
+            with st.spinner('جاري التحديث وبناء الفهرس المتجهي...'):
+                # نرسل الملف كـ File والقسم كـ Form Data
+                files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/json")}
+                data = {"category": selected_category}
+                
                 try:
-                    files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/json")}
-                    response = requests.post(UPLOAD_URL, files=files)
+                    response = requests.post(f"{API_URL}/upload-data", files=files, data=data)
                     if response.status_code == 200:
-                        st.success("تم التحديث بنجاح! البوت جاهز للبحث في البراءة الجديدة.")
+                        st.success(f"تم تحديث بيانات قسم '{selected_display}' بنجاح!")
                     else:
                         st.error(f"فشل التحديث! تفاصيل الخطأ: {response.text}")
                 except Exception as e:
-                    st.error(f"خطأ في الاتصال: {e}")
+                    st.error(f"حدث خطأ في الاتصال بالخادم: {e}")
+        else:
+            st.warning("الرجاء اختيار ملف أولاً.")
 
-# بقية كود العرض والمحادثة...
+# ==========================================
+# واجهة الدردشة الذكية
+# ==========================================
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-if prompt := st.chat_input("اسألني عن الاختراعات..."):
-    st.chat_message("user").markdown(prompt)
+if prompt := st.chat_input("اسألني عن أي شيء في حي ابتكار..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-    with st.spinner("يبحث في المستندات..."):
-        try:
-            history_text = "\n".join([f"{msg['role']}: {msg['content']}" for msg in st.session_state.messages[:-1]])
-            response = requests.post(API_URL, json={"message": prompt, "history": history_text})
-            response.raise_for_status()
-            bot_reply = response.json().get("reply", "لم أتمكن من استخراج الإجابة.")
-        except Exception as e:
-            bot_reply = "عذراً، الخادم غير متاح حالياً."
+    # تجهيز سجل المحادثة لدعم الذاكرة
+    history_text = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages[:-1]])
 
     with st.chat_message("assistant"):
-        st.markdown(bot_reply)
-    st.session_state.messages.append({"role": "assistant", "content": bot_reply})
+        with st.spinner('جاري البحث في ملفات الحي...'):
+            try:
+                payload = {"message": prompt, "history": history_text}
+                res = requests.post(f"{API_URL}/chat", json=payload)
+                
+                if res.status_code == 200:
+                    reply = res.json().get("reply", "عذراً، لم أتمكن من صياغة الإجابة.")
+                    st.markdown(reply)
+                    st.session_state.messages.append({"role": "assistant", "content": reply})
+                else:
+                    st.error("حدث خطأ أثناء جلب الإجابة من الخادم.")
+            except Exception as e:
+                st.error("فشل الاتصال بالخادم. تأكد من أن سيرفر Render يعمل.")
