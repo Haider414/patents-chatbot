@@ -1,6 +1,5 @@
 import os
 import json
-import shutil
 import base64
 import requests
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
@@ -29,12 +28,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# إعداد النماذج
+# ==========================================
+# 0. إعداد النماذج
+# ==========================================
 embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-2-preview", google_api_key=API_KEY)
 llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", google_api_key=API_KEY)
 
 # ==========================================
-# 1. إعداد الذاكرة المتعددة لأقسام حي ابتكار
+# 1. إعداد الذاكرة المتعددة والهيكل المتقدم
 # ==========================================
 CATEGORIES = {
     "patents": {"file": "data/patents.json", "index": "faiss_patents"},
@@ -47,10 +48,8 @@ vectorstores = {}
 retrievers = {}
 
 def initialize_category(category_name):
-    """دالة لإنشاء أو تحميل قاعدة البيانات لكل قسم"""
     file_path = CATEGORIES[category_name]["file"]
     index_path = CATEGORIES[category_name]["index"]
-    
     os.makedirs("data", exist_ok=True)
     
     try:
@@ -62,32 +61,48 @@ def initialize_category(category_name):
             json.dump(data, f, ensure_ascii=False)
             
     if data:
-        documents = [Document(page_content=json.dumps(item, ensure_ascii=False)) for item in data]
+        documents = []
+        for item in data:
+            # دمج النصوص العربية والإنجليزية لتسهيل الفهم على النموذج
+            combined_text = (
+                f"العنوان (Title): {item.get('title_ar', item.get('title', ''))} | {item.get('title_en', '')}\n"
+                f"الحالة (Status): {item.get('status', 'غير محدد')}\n"
+                f"التفاصيل (Details AR): {item.get('text_ar', item.get('description', item.get('abstract', '')))}\n"
+                f"التفاصيل (Details EN): {item.get('text_en', '')}"
+            )
+            
+            # حفظ البيانات الوصفية بشكل منفصل
+            meta = {
+                "id": item.get("doc_id", item.get("id", "N/A")),
+                "url": item.get("official_url", "N/A")
+            }
+            documents.append(Document(page_content=combined_text, metadata=meta))
+            
         vs = FAISS.from_documents(documents, embeddings)
     else:
         vs = FAISS.from_texts(["لا توجد بيانات حاليا في هذا القسم لحي ابتكار."], embeddings)
         
     vs.save_local(index_path)
     vectorstores[category_name] = vs
+    # نحتفظ بـ k=15 لضمان دقة السياق كما اتفقنا
     retrievers[category_name] = vs.as_retriever(search_kwargs={"k": 15})
 
 @app.on_event("startup")
 async def startup_event():
-    print("جاري تحميل قواعد بيانات حي ابتكار المستقلة...")
     for cat in CATEGORIES:
         initialize_category(cat)
-    print("تم تحميل جميع الفهارس بنجاح!")
-
 
 # ==========================================
-# 2. إعداد سلسلة المحادثة (Prompt & Chain)
+# 2. إعداد سلسلة المحادثة (المرنة والمنسقة)
 # ==========================================
-template = """أنت مساعد ذكي لمنصة حي ابتكار. اتبع هذه القواعد بصرامة:
-1. أجب بنفس لغة سؤال المستخدم بالضبط (إذا سأل بالعربية أجب بالعربية فقط، وإذا سأل بالإنجليزية أجب بالإنجليزية فقط).
-2. يُمنع منعاً باتاً خلط اللغتين في نفس الإجابة، يُستثنى من ذلك فقط المصطلحات التقنية المعقدة أو أسماء الشركات والتقنيات التي ليس لها ترجمة.
-3. إذا كان السؤال شخصياً أو مبنياً على حوار سابق، استخرج الإجابة من قسم <تاريخ_المحادثة>.
-4. إذا كان السؤال عن الحي (براءات، أبحاث، شركات، استثمارات)، استخرج الإجابة من قسم <سياق_المعلومات>.
-5. لا تقل "السياق لا يحتوي على معلومات" إذا كانت الإجابة موجودة في تاريخ المحادثة.
+template = """أنت مساعد ذكي ومستشار لمنصة "حي ابتكار" التابعة لجامعة الإمام عبدالرحمن بن فيصل. هدفك تقديم إجابات واضحة، منسقة، وغنية بالمعلومات.
+
+اتبع هذه القواعد بصرامة:
+1. استند في إجاباتك على الحقائق الموجودة في <سياق_المعلومات>.
+2. إذا طلب المستخدم تفاصيل إضافية أو شرحاً لمصطلح، يُسمح لك باستخدام معرفتك العامة لتوسيع الشرح وتبسيط المفاهيم، مع الإشارة بلطف إلى أن هذه معلومات إضافية للتوضيح.
+3. نسق إجاباتك دائماً لتكون مريحة للعين: استخدم النقاط، الخط العريض للعناوين، وفقرات قصيرة. لا تقم أبداً بسرد المعلومات ككتلة نصية متلاصقة.
+4. أجب بنفس لغة سؤال المستخدم (عربي أو إنجليزي) وتجنب الخلط بينهما إلا في المصطلحات التقنية.
+5. إذا كان السؤال شخصياً أو مبنياً على حوار سابق، استخدم <تاريخ_المحادثة>.
 
 <تاريخ_المحادثة>
 {history}
@@ -114,63 +129,52 @@ class ChatRequest(BaseModel):
 # 2.5. إعداد الوكيل الموجه (Router Agent)
 # ==========================================
 router_template = """أنت وكيل توجيه (Router Agent) في منصة حي ابتكار.
-مهمتك هي تحليل سؤال المستخدم وتحديد القسم الأنسب للإجابة عليه بدقة، اختر قسماً واحداً فقط من القائمة التالية:
-- patents (إذا كان السؤال عن براءات الاختراع، التقنيات، والملكيات الفكرية)
-- research (إذا كان السؤال عن الأبحاث، الأوراق العلمية، والمراكز)
-- startups (إذا كان السؤال عن الشركات الناشئة، رواد الأعمال، والمشاريع)
-- investments (إذا كان السؤال عن الفرص الاستثمارية، التمويل، والعوائد المالية)
-- all (إذا كان السؤال عاماً عن الحي ككل أو يشمل عدة أقسام، أو مجرد ترحيب)
+مهمتك تحليل سؤال المستخدم وتحديد القسم الأنسب للإجابة عليه بدقة، اختر قسماً واحداً فقط من القائمة:
+- patents 
+- research 
+- startups 
+- investments 
+- all 
 
 سؤال المستخدم: {question}
 
-أجب بكلمة واحدة فقط باللغة الإنجليزية من الكلمات المذكورة أعلاه (patents, research, startups, investments, all).
+أجب بكلمة واحدة فقط باللغة الإنجليزية من الكلمات المذكورة أعلاه.
 القسم المختار:"""
-
 router_prompt = PromptTemplate.from_template(router_template)
-# نستخدم نفس النموذج اللغوي llm ليكون هو العقل الموجه
 router_chain = router_prompt | llm | StrOutputParser()
 
-
 # ==========================================
-# 3. مسار الدردشة (مزود بالوكيل الموجه)
+# 3. مسار الدردشة
 # ==========================================
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
     try:
-        # 1. مرحلة التوجيه: سؤال الوكيل الموجه عن القسم المناسب
         category = router_chain.invoke({"question": request.message}).strip().lower()
-        print(f"الوكيل الموجه قرر تحويل السؤال إلى قسم: {category}") # سيظهر هذا في سجلات Render
         
-        # 2. مرحلة الاسترجاع: البحث في القسم المحدد فقط
         all_docs = []
         if category in retrievers:
-            # إذا اختار قسماً محدداً، نبحث فيه فقط
             docs = retrievers[category].invoke(request.message)
             all_docs.extend(docs)
         else:
-            # إذا اختار 'all' أو لم يفهم السؤال، نبحث في كل الأقسام احتياطياً
             for cat in retrievers:
                 docs = retrievers[cat].invoke(request.message)
                 all_docs.extend(docs)
                 
-        # نأخذ أفضل 15 نتيجة لضمان السياق العميق
         context_text = format_docs(all_docs[:15])
         
-        # 3. مرحلة التوليد: صياغة الإجابة النهائية
         response = qa_chain.invoke({
             "context": context_text,
             "history": request.history,
             "question": request.message
         })
         
-        # التعديل هنا: نرسل القسم المختار مع الإجابة
+        # إرسال القسم المختار مع الإجابة لعرضه في الواجهة
         return {"reply": response, "category": category}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # ==========================================
-# 4. مسار رفع البيانات للأقسام
+# 4. مسار رفع البيانات (مع الحفظ التلقائي)
 # ==========================================
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_REPO = os.getenv("GITHUB_REPO", "Haider414/patents-chatbot")
@@ -178,56 +182,39 @@ GITHUB_REPO = os.getenv("GITHUB_REPO", "Haider414/patents-chatbot")
 @app.post("/upload-data")
 async def upload_data(category: str = Form(...), file: UploadFile = File(...)):
     if category not in CATEGORIES:
-        raise HTTPException(status_code=400, detail="قسم غير صالح. الرجاء اختيار قسم صحيح.")
+        raise HTTPException(status_code=400, detail="قسم غير صالح.")
         
     try:
         content_bytes = await file.read()
-        file_content_str = content_bytes.decode("utf-8")
-        new_data = json.loads(file_content_str)
-        
+        new_data = json.loads(content_bytes.decode("utf-8"))
         file_path = CATEGORIES[category]["file"]
         
-        # قراءة البيانات الحالية للقسم
         with open(file_path, "r", encoding="utf-8") as f:
             existing_data = json.load(f)
             
         combined_data = existing_data + (new_data if isinstance(new_data, list) else [new_data])
         
-        # 1. حفظ الملف في الذاكرة محلياً
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(combined_data, f, ensure_ascii=False, indent=4)
             
-        # 2. تحديث فهرس القسم المحدد فوراً
         initialize_category(category)
         
-        # 3. الرفع التلقائي إلى GitHub لضمان حفظ البيانات دائماً
+        # الرفع التلقائي إلى GitHub
         if GITHUB_TOKEN and GITHUB_REPO:
             try:
                 url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{file_path}"
                 headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-                
-                # جلب رقم SHA للملف الحالي إذا كان موجوداً
                 get_response = requests.get(url, headers=headers)
-                sha = ""
-                if get_response.status_code == 200:
-                    sha = get_response.json().get("sha", "")
+                sha = get_response.json().get("sha", "") if get_response.status_code == 200 else ""
                 
-                # تجهيز البيانات للرفع
-                updated_content = json.dumps(combined_data, ensure_ascii=False, indent=4)
-                encoded_content = base64.b64encode(updated_content.encode("utf-8")).decode("utf-8")
-                
-                put_data = {
-                    "message": f"Auto-update {category} data via API",
-                    "content": encoded_content,
-                    "branch": "main"
-                }
-                if sha:
-                    put_data["sha"] = sha
+                encoded_content = base64.b64encode(json.dumps(combined_data, ensure_ascii=False, indent=4).encode("utf-8")).decode("utf-8")
+                put_data = {"message": f"Auto-update {category}", "content": encoded_content, "branch": "main"}
+                if sha: put_data["sha"] = sha
                     
                 requests.put(url, headers=headers, json=put_data)
-            except Exception as gh_error:
-                print(f"خطأ في المزامنة مع جيت هب: {gh_error}")
+            except Exception as e:
+                print(f"GitHub Sync Error: {e}")
 
-        return {"status": "success", "message": f"تم تحديث بيانات قسم {category} وحفظها بنجاح!"}
+        return {"status": "success", "message": f"تم التحديث والحفظ بنجاح!"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
