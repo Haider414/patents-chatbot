@@ -74,7 +74,24 @@ if prompt := st.chat_input("اسألني عن أي شيء في حي ابتكار
                 res = requests.post(f"{API_URL}/chat", json=payload)
                 
                 if res.status_code == 200:
-                    reply = res.json().get("reply", "عذراً، لم أتمكن من صياغة الإجابة.")
+                    response_data = res.json()
+                    reply = response_data.get("reply", "عذراً، لم أتمكن من صياغة الإجابة.")
+                    category = response_data.get("category", "all")
+                    
+                    # ترجمة اسم القسم لعرضه بشكل جميل
+                    category_names = {
+                        "patents": "براءات الاختراع والتقنيات 💡",
+                        "research": "المشاريع البحثية والمراكز 🔬",
+                        "startups": "الشركات الناشئة 🚀",
+                        "investments": "الفرص الاستثمارية 📈",
+                        "all": "بحث شامل 🌐"
+                    }
+                    display_cat = category_names.get(category, category)
+                    
+                    # عرض إشعار ذكاء الوكيل
+                    st.info(f"🤖 **الوكيل الموجه:** تم تحليل سؤالك وتوجيهه إلى قسم [{display_cat}]")
+                    
+                    # عرض الإجابة
                     st.markdown(reply)
                     st.session_state.messages.append({"role": "assistant", "content": reply})
                 else:

@@ -162,7 +162,9 @@ async def chat_endpoint(request: ChatRequest):
             "history": request.history,
             "question": request.message
         })
-        return {"reply": response}
+        
+        # التعديل هنا: نرسل القسم المختار مع الإجابة
+        return {"reply": response, "category": category}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
