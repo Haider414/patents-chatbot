@@ -200,7 +200,8 @@ async def generate_speech(request: SpeechRequest):
         cleaned_text = clean_text_for_speech(request.text)
         
         # إعدادات ElevenLabs (يمكنك تغيير ID الصوت لاحقاً بصوت تفضله)
-        voice_id = "21m00Tcm4TlvDq8ikWAM" # صوت افتراضي (Rachel)
+        # صوت Adam الافتراضي المجاني المدعوم للـ API
+        voice_id = "pNInz6obpgDQGcFmaJgB" # Adam
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
         
         headers = {
@@ -221,7 +222,9 @@ async def generate_speech(request: SpeechRequest):
         response = requests.post(url, json=data, headers=headers)
         
         if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail="Error generating speech.")
+            # اطبع الخطأ الفعلي القادم من ElevenLabs في التيرمنال لنراه بوضوح
+            print(f"🔴 ElevenLabs API Error: {response.text}")
+            raise HTTPException(status_code=response.status_code, detail=f"Error: {response.text}")
             
         # تحويل الصوت إلى Base64 لإرساله بسهولة للواجهة
         audio_base64 = base64.b64encode(response.content).decode('utf-8')
