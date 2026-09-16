@@ -3,7 +3,7 @@ import requests
 import base64 # تأكد من إضافة هذا في أعلى الملف إذا لم يكن موجوداً
 
 # تأكد من أن هذا هو رابط الخادم الخاص بك على Render
-API_URL = "http://localhost:8000"
+API_URL = "https://patents-chatbot-1-ufrw.onrender.com" 
 
 # إعداد الصفحة لتعكس هوية حي ابتكار
 st.set_page_config(page_title="حي ابتكار - البوابة الرقمية", page_icon="💡", layout="centered")
