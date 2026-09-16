@@ -1,10 +1,20 @@
 [
-    {
-        "id": "INV-2026-008",
-        "opportunity_name": "مشروع حديقة التراث التفاعلية",
-        "location": "جزيرة تاروت",
-        "description": "فرصة استثمارية لتطوير حديقة سياحية تراثية تحتوي على غرف هروب، تقنيات الواقع الافتراضي لسرد التاريخ، وأنفاق تحت البحر بجوار قلعة تاروت.",
-        "required_funding": "5,000,000 ريال",
-        "expected_roi": "15%"
-    }
+  {
+    "doc_id": "INV-301",
+    "title_ar": "فرصة استثمارية في حاضنة ومسرعة مشاريع الذكاء الاصطناعي التوليدي والوكلاء الذكيين",
+    "title_en": "Investment Opportunity in Generative AI and Autonomous Multi-Agent Incubator & Accelerator",
+    "status": "متاحة للشراكة الاستراتيجية (Open for Strategic Partnership)",
+    "text_ar": "فرصة استثمارية لدعم وتطوير المشاريع الناشئة المتخصصة في تطوير منصات الوكلاء الذكيين (Multi-Agent Systems) الموجهة للقطاعات الحكومية والخاصة في المملكة.",
+    "text_en": "An investment opportunity to support and scale startups specializing in multi-agent systems tailored for government and private sectors in the Kingdom.",
+    "official_url": "https://www.iau.edu.sa/investments/ai-incubator"
+  },
+  {
+    "doc_id": "INV-302",
+    "title_ar": "برنامج تمويل الأبحاث التجارية وتطوير النماذج الصناعية الأولية (MVP)",
+    "title_en": "Commercial Research Financing and Industrial MVP Development Program",
+    "status": "مفتوح للتقديم (Open for Applications)",
+    "text_ar": "صندوق تمعيلي مخصص لتحويل الأبحاث الأكاديمية ونماذج براءات الاختراع في جامعة الإمام عبدالرحمن بن فيصل إلى منتجات تجارية قابلة للتوظيف في السوق السعودي.",
+    "text_en": "A funding fund dedicated to transforming academic research and patent prototypes at Imam Abdulrahman Bin Faisal University into commercial products deployable in the Saudi market.",
+    "official_url": "https://www.iau.edu.sa/investments/mvp-fund"
+  }
 ]

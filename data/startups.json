@@ -1,9 +1,29 @@
 [
-    {
-        "id": "ST-2026-012",
-        "company_name": "CompliAI",
-        "description": "منصة متعددة الوكلاء (Multi-Agent) تعمل باللغة العربية لأتمتة مسح الامتثال التنظيمي للشركات ضد أطر العمل السعودية مثل مؤسسة النقد وهيئة البيانات.",
-        "sector": "التقنية المالية والامتثال (RegTech)",
-        "stage": "مرحلة الإطلاق"
-    }
+  {
+    "doc_id": "STR-201",
+    "title_ar": "شركة 'CompliAI' التقنية للتحقق الآلي من الامتثال التنظيمي في السعودية",
+    "title_en": "'CompliAI' Tech Startup for Automated Regulatory Compliance Scanning in Saudi Arabia",
+    "status": "محاضنتا في واحة السناء (Incubated)",
+    "text_ar": "منصة تعتمد على الجيل القادم من محركات الـ RAG، مصممة لهيكلة وفحص اللوائح التنظيمية والتشريعية السعودية تلقائياً (مثل SAMA، PDPL، ECC، DGA، CST) للشركات والجهات.",
+    "text_en": "A platform relying on next-gen RAG engines, designed to structure and automatically scan Saudi regulatory frameworks (SAMA, PDPL, ECC, DGA, CST) for corporations and entities.",
+    "official_url": "https://www.compliai.sa"
+  },
+  {
+    "doc_id": "STR-202",
+    "title_ar": "شركة 'رؤية تاروت' للسياحة التراثية الافتراضية والواقع المعزز",
+    "title_en": "Tarout Vision Startup for Virtual Heritage Tourism and Augmented Reality",
+    "status": "مرحلة التأسيس ونموذج العمل (Seed Stage)",
+    "text_ar": "مشروع ريادي يستكشف دمج التقنيات الغامرة (VR/AR) مع المعالم التاريخية مثل قلعة تاروت وجزيرة تاروت، وتقديم تجارب سياحية تفاعلية وألعاب غرف الهروب التاريخية.",
+    "text_en": "An entrepreneurial venture exploring the integration of immersive technologies (VR/AR) with historical landmarks like Tarout Castle and Tarout Island, offering interactive tourism experiences and historical escape rooms.",
+    "official_url": "https://www.taroutvision.sa"
+  },
+  {
+    "doc_id": "STR-203",
+    "title_ar": "شركة 'طبيبي الذكي' للتشخيص الطبي السريع المدعوم بالذكاء الاصطناعي",
+    "title_en": "Smart Medic Startup for Rapid AI-Powered Medical Diagnosis",
+    "status": "نشطة وممولة (Active & Funded)",
+    "text_ar": "تطبيق ريادي يربط بين المرضى والكوادر الطبية، ويوفر فحوصات أولية عبر الذكاء الاصطناعي لتحليل الأعراض وتوجيه المريض للعيادة التخصصية المناسبة فوراً.",
+    "text_en": "An entrepreneurial app connecting patients with medical staff, providing preliminary AI-powered symptom analysis to direct patients immediately to the appropriate specialized clinic.",
+    "official_url": "https://www.smartmedic.sa"
+  }
 ]

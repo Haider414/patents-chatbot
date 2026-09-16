@@ -1,10 +1,38 @@
 [
-    {
-        "id": "PT-2026-001",
-        "title": "نظام محادثة تعاطفي باللغة العربية (Atmai'in) باستخدام التوليد المعزز بالاسترجاع",
-        "inventor": "باحثي جامعة الإمام عبدالرحمن بن فيصل",
-        "abstract": "براءة اختراع لهيكلية نظام يستخدم نماذج التضمين والمحاكات مع تقنيات إزالة التشكيل العربي لتقديم ردود تعاطفية دقيقة للمستخدمين.",
-        "status": "ممنوحة",
-        "domain": "الذكاء الاصطناعي ومعالجة اللغات الطبيعية (NLP)"
-    }
+  {
+    "doc_id": "PAT-001",
+    "title_ar": "نظام ذكي لكشف وتشخيص أمراض شبكية العين باستخدام رؤية الحاسوب والتعلم العميق",
+    "title_en": "Intelligent System for Retinal Disease Detection Using Computer Vision and Deep Learning",
+    "status": "معتمدة ومنشورة (Approved & Published)",
+    "text_ar": "نظام متطور يعتمد على خوارزميات YOLOv8 و Mask R-CNN لتحليل صور قاع العين بدقة عالية، مما يساعد الأطباء في الاكتشاف المبكر لمرض اعتلال الشبكية السكري بنسبة دقة تصل إلى 98.5%.",
+    "text_en": "Advanced system utilizing YOLOv8 and Mask R-CNN algorithms for high-precision retinal image analysis, assisting physicians in early diabetic retinopathy detection with 98.5% accuracy.",
+    "official_url": "https://www.iau.edu.sa/patents/retinal-ai"
+  },
+  {
+    "doc_id": "PAT-002",
+    "title_ar": "منصة أمنية للتصدي للهجمات السيبرانية على البنى التحتية الذكية باستخدام الذكاء الاصطناعي التنبؤي",
+    "title_en": "Cybersecurity Platform for Smart Infrastructure Threat Mitigation Using Predictive AI",
+    "status": "قيد التسجيل الفحوصات النهائية (Under Final Review)",
+    "text_ar": "تقنية مبتكرة لمراقبة تدفق البيانات في المدن الذكية وشبكات الطاقة، تستخدم نماذج التعلم العميق لاكتشاف الاختراقات قبل وقوعها وعزل الثغرات تلقائياً.",
+    "text_en": "Innovative technology for monitoring data streams in smart cities and power grids, utilizing deep learning models to detect breaches before occurrence and automatically isolate vulnerabilities.",
+    "official_url": "https://www.iau.edu.sa/patents/cyber-ai"
+  },
+  {
+    "doc_id": "PAT-003",
+    "title_ar": "روبوت زراعي ذاتي الحركة لمراقبة وصحة المحاصيل في الأجواء الصحراوية",
+    "title_en": "Autonomous Agricultural Robot for Crop Health Monitoring in Desert Climates",
+    "status": "مسجلة رسميًا (Officially Registered)",
+    "text_ar": "روبوت مزود بكاميرات طيفية ومستشعرات حرارية مبرمج للعمل في بيئات المنطقة الشرقية القاسية، لتقييم رطوبة التربة واكتشاف الآفات الزراعية بدقة فائقة دون تدخل بشري.",
+    "text_en": "Robot equipped with spectral cameras and thermal sensors engineered to operate in harsh Eastern Province environments, assessing soil moisture and detecting agricultural pests with high precision.",
+    "official_url": "https://www.iau.edu.sa/patents/agri-bot"
+  },
+  {
+    "doc_id": "PAT-004",
+    "title_ar": "خوارزمية معالجة اللغات الطبيعية المتقدمة لتحليل اللهجات العربية المحلية في خدمة العملاء",
+    "title_en": "Advanced NLP Algorithm for Local Arabic Dialect Analysis in Customer Service",
+    "status": "منشورة ومتاحة للترخيص (Published & Available for Licensing)",
+    "text_ar": "نموذج لغوي مدرب خصيصاً على فهم وتوليد اللهجات الخليجية والعربية المختلفة بدقة عالية لدمجه في الأنظمة الحكومية والخدمية الآلية.",
+    "text_en": "A linguistic model specially trained to understand and generate various Gulf and Arabic dialects with high accuracy for integration into automated government and service systems.",
+    "official_url": "https://www.iau.edu.sa/patents/arabic-nlp"
+  }
 ]

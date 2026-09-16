@@ -1,33 +1,29 @@
 [
-    {
-        "id": "RES-2026-045",
-        "title": "تحسين اكتشاف الكائنات وتجزئة الصور في البيئات المعقدة",
-        "team": "مركز أبحاث الذكاء الاصطناعي",
-        "summary": "بحث يركز على استخدام خوارزميات YOLOv8 و Mask R-CNN مع نماذج Depth Anything لتقدير العمق الأحادي وتصنيف الصور في الزمن الفعلي.",
-        "status": "نشط",
-        "keywords": [
-            "Computer Vision",
-            "YOLOv8",
-            "Depth Estimation"
-        ]
-    },
-    {
-        "doc_id": "RES_AI_001",
-        "domain": "research",
-        "status": "active",
-        "last_updated": "2026-09-15",
-        "title_ar": "تحسين اكتشاف الكائنات وتجزئة الصور",
-        "title_en": "Optimizing Object Detection and Image Segmentation",
-        "text_ar": "بحث يركز على استخدام خوارزميات YOLOv8 و Mask R-CNN مع نماذج Depth Anything لتقدير العمق الأحادي في الزمن الفعلي.",
-        "text_en": "Research focusing on using YOLOv8 and Mask R-CNN with Depth Anything models for real-time monocular depth estimation.",
-        "attributes": {
-            "team": "مركز أبحاث الذكاء الاصطناعي",
-            "keywords": [
-                "Computer Vision",
-                "YOLOv8",
-                "Depth Estimation"
-            ]
-        },
-        "official_url": "https://iau.edu.sa/research/ai-001"
-    }
+  {
+    "doc_id": "RES-101",
+    "title_ar": "مشروع منصة 'اطمئن': النظام العربي المتقدم للمحادثة العاطفية المدعوم بالذكاء الاصطناعي التوليدي",
+    "title_en": "'Atmai'in' Project: Advanced Arabic Empathetic Chatbot System Powered by Generative AI",
+    "status": "مكتمل وجاهز للتشغيل (Completed & Ready)",
+    "text_ar": "مشروع بحثي أكاديمي هندسي تم تنفيذه باستخدام نماذج Gemini-001، ومستودعات FAISS، وFastAPI، وتقنيات إزالة التشكيل العربي بمعادلات الـ Regex، مع دمج تقنية تحويل النص إلى صوت عبر ElevenLabs.",
+    "text_en": "An academic engineering research project implemented using Gemini-001 models, FAISS vector stores, FastAPI, Arabic diacritics removal regex, and ElevenLabs text-to-speech integration.",
+    "official_url": "https://www.iau.edu.sa/research/atmaiin"
+  },
+  {
+    "doc_id": "RES-102",
+    "title_ar": "مركز أبحاث التقنيات الحيوية وتحلية المياه بالطاقة الشمسية في المنطقة الشرقية",
+    "title_en": "Biotechnology and Solar-Powered Water Desalination Research Center in the Eastern Province",
+    "status": "نشط وقائم (Active & Ongoing)",
+    "text_ar": "مركز بحثي يركز على ابتكار أغشية نانوية متطورة لتحلية مياه الخليج بأقل استهلاك للطاقة وأعلى كفاءة إنتاجية، بالشراكة مع القطاع الصناعي.",
+    "text_en": "A research center focusing on innovating advanced nanomembranes for Gulf water desalination with minimal energy consumption and highest production efficiency, in partnership with the industrial sector.",
+    "official_url": "https://www.iau.edu.sa/research/water-center"
+  },
+  {
+    "doc_id": "RES-103",
+    "title_ar": "دراسة تحليل أسباب التسוק الوظيفي والأداء المؤسسي باستخدام خوارزميات التعلم الآلي",
+    "title_en": "Employee Attrition Analytics and Organizational Performance Study Using Machine Learning Algorithms",
+    "status": "مكتمل (Completed)",
+    "text_ar": "بحث تحليلي تضمن تنظيف وتجهيز مجموعات بيانات ضخمة، وتطبيق تحسين المعلمات الفائقة (Grid Search) لنماذج الانحدار اللوجستي للتنبؤ بدوران العمل وتحسين بيئة العمل.",
+    "text_en": "Analytical research involving cleaning and preprocessing massive datasets, applying Grid Search hyperparameter optimization for Logistic Regression models to predict turnover and improve workplace environment.",
+    "official_url": "https://www.iau.edu.sa/research/attrition-study"
+  }
 ]
