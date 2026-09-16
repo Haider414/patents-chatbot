@@ -5,6 +5,10 @@ import requests
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+import re
+# سنستخدم requests للاتصال بـ ElevenLabs
+from dotenv import load_dotenv
+load_dotenv()
 
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
@@ -182,6 +186,50 @@ async def chat_endpoint(request: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
+
+class SpeechRequest(BaseModel):
+    text: str
+
+@app.post("/speak")
+async def generate_speech(request: SpeechRequest):
+    if not ELEVENLABS_API_KEY:
+        raise HTTPException(status_code=500, detail="ElevenLabs API Key is missing.")
+        
+    try:
+        cleaned_text = clean_text_for_speech(request.text)
+        
+        # إعدادات ElevenLabs (يمكنك تغيير ID الصوت لاحقاً بصوت تفضله)
+        voice_id = "21m00Tcm4TlvDq8ikWAM" # صوت افتراضي (Rachel)
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        
+        headers = {
+            "Accept": "audio/mpeg",
+            "Content-Type": "application/json",
+            "xi-api-key": ELEVENLABS_API_KEY
+        }
+        
+        data = {
+            "text": cleaned_text,
+            "model_id": "eleven_multilingual_v2", # يدعم العربية والإنجليزية بطلاقة
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.75
+            }
+        }
+        
+        response = requests.post(url, json=data, headers=headers)
+        
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail="Error generating speech.")
+            
+        # تحويل الصوت إلى Base64 لإرساله بسهولة للواجهة
+        audio_base64 = base64.b64encode(response.content).decode('utf-8')
+        return {"audio_base64": audio_base64}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ==========================================
 # 4. مسار رفع البيانات (مع الحفظ التلقائي)
 # ==========================================
@@ -227,3 +275,19 @@ async def upload_data(category: str = Form(...), file: UploadFile = File(...)):
         return {"status": "success", "message": f"تم التحديث والحفظ بنجاح!"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# وظائف معالجة الصوت (Text-to-Speech)
+# ==========================================
+def clean_text_for_speech(text: str) -> str:
+    # 1. إزالة علامات Markdown (النجمات، الشُرط، الروابط)
+    text = re.sub(r'[*_#`\[\]()]', '', text)
+    text = re.sub(r'-', ' ', text)
+    
+    # 2. إزالة التشكيل العربي (حركات الفتحة، الضمة، الكسرة، إلخ)
+    arabic_diacritics = re.compile(r'[\u064B-\u065F]')
+    text = arabic_diacritics.sub('', text)
+    
+    # 3. إزالة المسافات الزائدة
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text

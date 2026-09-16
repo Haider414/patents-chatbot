@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import base64 # تأكد من إضافة هذا في أعلى الملف إذا لم يكن موجوداً
 
 # تأكد من أن هذا هو رابط الخادم الخاص بك على Render
 API_URL = "https://patents-chatbot-1-ufrw.onrender.com" 
@@ -93,6 +94,23 @@ if prompt := st.chat_input("اسألني عن أي شيء في حي ابتكار
                     
                     # عرض الإجابة بتنسيق يدعم اللغتين والاتجاهين بشكل سليم
                     st.markdown(f'<div dir="auto" style="text-align: justify;">{reply}</div>', unsafe_allow_html=True)
+                    # زر الاستماع الصوتي للإجابة الأحدث
+                    if st.button("🎙️ استمع للإجابة", key=f"voice_btn_{len(st.session_state.messages)}"):
+                        with st.spinner("جاري توليد الصوت الاحترافي..."):
+                            try:
+                                # استبدل localhost برابط خادم Render الخاص بك عند الرفع
+                                speech_res = requests.post(
+                                    "http://localhost:8000/speak", 
+                                    json={"text": reply}
+                                )
+                                if speech_res.status_code == 200:
+                                    audio_b64 = speech_res.json().get("audio_base64")
+                                    audio_bytes = base64.b64decode(audio_b64)
+                                    st.audio(audio_bytes, format="audio/mp3")
+                                else:
+                                    st.error("عذراً، حدث خطأ أثناء الاتصال بمحرك الصوت.")
+                            except Exception as e:
+                                st.error(f"فشل الاتصال بالخادم: {e}")
                     st.session_state.messages.append({"role": "assistant", "content": reply})
                 else:
                     st.error("حدث خطأ أثناء جلب الإجابة من الخادم.")
