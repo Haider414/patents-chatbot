@@ -56,22 +56,51 @@ with st.sidebar:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-for msg in st.session_state.messages:
+# 1. حلقة العرض: مسؤولة عن رسم المحادثة وأزرار الصوت بشكل دائم
+for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+        if msg["role"] == "assistant":
+            # عرض إشعار الوكيل الموجه (إن وُجد)
+            if "category" in msg:
+                st.info(f"🤖 **الوكيل الموجه:** تم تحليل سؤالك وتوجيهه إلى قسم [{msg['category']}]")
+            
+            # عرض النص بتنسيق سليم
+            st.markdown(f'<div dir="auto" style="text-align: justify;">{msg["content"]}</div>', unsafe_allow_html=True)
+            
+            # إدارة الصوت (مشغل الصوت أو زر الاستماع)
+            audio_key = f"audio_{i}"
+            if audio_key in st.session_state:
+                st.audio(st.session_state[audio_key], format="audio/mp3")
+            else:
+                if st.button("🎙️ استمع للإجابة", key=f"voice_btn_{i}"):
+                    with st.spinner("جاري توليد الصوت..."):
+                        try:
+                            speech_res = requests.post(f"{API_URL}/speak", json={"text": msg["content"]})
+                            if speech_res.status_code == 200:
+                                audio_b64 = speech_res.json().get("audio_base64")
+                                st.session_state[audio_key] = base64.b64decode(audio_b64)
+                                st.rerun() # هذا التحديث الآن آمن جداً
+                            else:
+                                st.error("عذراً، حدث خطأ أثناء الاتصال بمحرك الصوت.")
+                        except Exception as e:
+                            st.error(f"فشل الاتصال بالخادم: {e}")
+        else:
+            # عرض رسالة المستخدم
+            st.markdown(msg["content"])
 
+# 2. حلقة الإدخال: مسؤولة فقط عن استقبال السؤال الجديد
 if prompt := st.chat_input("اسألني عن أي شيء في حي ابتكار..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+    st.rerun() # تحديث الواجهة لعرض السؤال فوراً
 
-    # تجهيز سجل المحادثة لدعم الذاكرة
-    history_text = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages[:-1]])
-
+# 3. حلقة المعالجة: جلب الإجابة إذا كان آخر متحدث هو المستخدم
+if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
     with st.chat_message("assistant"):
         with st.spinner('جاري البحث في ملفات الحي...'):
             try:
-                payload = {"message": prompt, "history": history_text}
+                history_text = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages[:-1]])
+                payload = {"message": st.session_state.messages[-1]["content"], "history": history_text}
+                
                 res = requests.post(f"{API_URL}/chat", json=payload)
                 
                 if res.status_code == 200:
@@ -79,10 +108,6 @@ if prompt := st.chat_input("اسألني عن أي شيء في حي ابتكار
                     reply = response_data.get("reply", "عذراً، لم أتمكن من صياغة الإجابة.")
                     category = response_data.get("category", "all")
                     
-                    # 1. الإصلاح الأهم: حفظ الإجابة في الذاكرة فوراً قبل أي شيء آخر!
-                    st.session_state.messages.append({"role": "assistant", "content": reply})
-                    
-                    # ترجمة اسم القسم لعرضه بشكل جميل
                     category_names = {
                         "patents": "براءات الاختراع والتقنيات 💡",
                         "research": "المشاريع البحثية والمراكز 🔬",
@@ -92,39 +117,14 @@ if prompt := st.chat_input("اسألني عن أي شيء في حي ابتكار
                     }
                     display_cat = category_names.get(category, category)
                     
-                    # عرض إشعار ذكاء الوكيل
-                    st.info(f"🤖 **الوكيل الموجه:** تم تحليل سؤالك وتوجيهه إلى قسم [{display_cat}]")
-                    
-                    # عرض الإجابة بتنسيق يدعم اللغتين والاتجاهين بشكل سليم
-                    st.markdown(f'<div dir="auto" style="text-align: justify;">{reply}</div>', unsafe_allow_html=True)
-                    
-                    # 2. تحديد مفتاح الصوت بناءً على طول الرسائل (ناقص 1 لأننا أضفنا الرسالة للتو)
-                    audio_key = f"audio_{len(st.session_state.messages) - 1}"
-                    
-                    # إذا كان الصوت قد تم توليده وحفظه مسبقاً، اعرض مشغل الصوت مباشرة
-                    if audio_key in st.session_state:
-                        st.audio(st.session_state[audio_key], format="audio/mp3")
-                    else:
-                        # إذا لم يكن موجوداً، اعرض زر الاستماع
-                        if st.button("🎙️ استمع للإجابة", key=f"voice_btn_{len(st.session_state.messages) - 1}"):
-                            with st.spinner("جاري توليد الصوت الاحترافي..."):
-                                try:
-                                    # 3. استخدام المتغير الديناميكي API_URL بدلاً من localhost
-                                    speech_res = requests.post(
-                                        f"{API_URL}/speak", 
-                                        json={"text": reply}
-                                    )
-                                    if speech_res.status_code == 200:
-                                        audio_b64 = speech_res.json().get("audio_base64")
-                                        # حفظ الصوت في الذاكرة حتى لا يختفي بعد الضغط
-                                        st.session_state[audio_key] = base64.b64decode(audio_b64)
-                                        # إعادة تحديث الواجهة فوراً لإظهار مشغل الصوت
-                                        st.rerun() 
-                                    else:
-                                        st.error("عذراً، حدث خطأ أثناء الاتصال بمحرك الصوت.")
-                                except Exception as e:
-                                    st.error(f"فشل الاتصال بالخادم: {e}")
+                    # حفظ الإجابة والمسار في الذاكرة معاً
+                    st.session_state.messages.append({
+                        "role": "assistant", 
+                        "content": reply,
+                        "category": display_cat
+                    })
+                    st.rerun() # التحديث الأخير لكي ترسم حلقة العرض (رقم 1) النص وزر الصوت
                 else:
                     st.error("حدث خطأ أثناء جلب الإجابة من الخادم.")
             except Exception as e:
-                st.error(f"فشل الاتصال بالخادم. تأكد من أن سيرفر Render يعمل. التفاصيل: {e}")
+                st.error(f"فشل الاتصال بالخادم. التفاصيل: {e}")
