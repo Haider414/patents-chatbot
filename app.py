@@ -91,8 +91,8 @@ if prompt := st.chat_input("اسألني عن أي شيء في حي ابتكار
                     # عرض إشعار ذكاء الوكيل
                     st.info(f"🤖 **الوكيل الموجه:** تم تحليل سؤالك وتوجيهه إلى قسم [{display_cat}]")
                     
-                    # عرض الإجابة
-                    st.markdown(reply)
+                    # عرض الإجابة بتنسيق يدعم اللغتين والاتجاهين بشكل سليم
+                    st.markdown(f'<div dir="auto" style="text-align: justify;">{reply}</div>', unsafe_allow_html=True)
                     st.session_state.messages.append({"role": "assistant", "content": reply})
                 else:
                     st.error("حدث خطأ أثناء جلب الإجابة من الخادم.")
