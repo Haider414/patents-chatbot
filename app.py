@@ -94,23 +94,31 @@ if prompt := st.chat_input("اسألني عن أي شيء في حي ابتكار
                     
                     # عرض الإجابة بتنسيق يدعم اللغتين والاتجاهين بشكل سليم
                     st.markdown(f'<div dir="auto" style="text-align: justify;">{reply}</div>', unsafe_allow_html=True)
-                    # زر الاستماع الصوتي للإجابة الأحدث
-                    if st.button("🎙️ استمع للإجابة", key=f"voice_btn_{len(st.session_state.messages)}"):
-                        with st.spinner("جاري توليد الصوت الاحترافي..."):
-                            try:
-                                # استبدل localhost برابط خادم Render الخاص بك عند الرفع
-                                speech_res = requests.post(
-                                    "http://localhost:8000/speak", 
-                                    json={"text": reply}
-                                )
-                                if speech_res.status_code == 200:
-                                    audio_b64 = speech_res.json().get("audio_base64")
-                                    audio_bytes = base64.b64decode(audio_b64)
-                                    st.audio(audio_bytes, format="audio/mp3")
-                                else:
-                                    st.error("عذراً، حدث خطأ أثناء الاتصال بمحرك الصوت.")
-                            except Exception as e:
-                                st.error(f"فشل الاتصال بالخادم: {e}")
+                    # إنشاء مفتاح فريد لهذه الإجابة في ذاكرة الواجهة
+                    audio_key = f"audio_{len(st.session_state.messages)}"
+                    
+                    # إذا كان الصوت قد تم توليده وحفظه مسبقاً، اعرض مشغل الصوت مباشرة
+                    if audio_key in st.session_state:
+                        st.audio(st.session_state[audio_key], format="audio/mp3")
+                    else:
+                        # إذا لم يكن موجوداً، اعرض زر الاستماع
+                        if st.button("🎙️ استمع للإجابة", key=f"voice_btn_{len(st.session_state.messages)}"):
+                            with st.spinner("جاري توليد الصوت الاحترافي..."):
+                                try:
+                                    speech_res = requests.post(
+                                        "http://localhost:8000/speak", 
+                                        json={"text": reply}
+                                    )
+                                    if speech_res.status_code == 200:
+                                        audio_b64 = speech_res.json().get("audio_base64")
+                                        # حفظ الصوت في الذاكرة حتى لا يختفي بعد الضغط
+                                        st.session_state[audio_key] = base64.b64decode(audio_b64)
+                                        # إعادة تحديث الواجهة فوراً لإظهار مشغل الصوت
+                                        st.rerun() 
+                                    else:
+                                        st.error("عذراً، حدث خطأ أثناء الاتصال بمحرك الصوت.")
+                                except Exception as e:
+                                    st.error(f"فشل الاتصال بالخادم: {e}")
                     st.session_state.messages.append({"role": "assistant", "content": reply})
                 else:
                     st.error("حدث خطأ أثناء جلب الإجابة من الخادم.")
