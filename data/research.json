@@ -10,5 +10,24 @@
             "YOLOv8",
             "Depth Estimation"
         ]
+    },
+    {
+        "doc_id": "RES_AI_001",
+        "domain": "research",
+        "status": "active",
+        "last_updated": "2026-09-15",
+        "title_ar": "تحسين اكتشاف الكائنات وتجزئة الصور",
+        "title_en": "Optimizing Object Detection and Image Segmentation",
+        "text_ar": "بحث يركز على استخدام خوارزميات YOLOv8 و Mask R-CNN مع نماذج Depth Anything لتقدير العمق الأحادي في الزمن الفعلي.",
+        "text_en": "Research focusing on using YOLOv8 and Mask R-CNN with Depth Anything models for real-time monocular depth estimation.",
+        "attributes": {
+            "team": "مركز أبحاث الذكاء الاصطناعي",
+            "keywords": [
+                "Computer Vision",
+                "YOLOv8",
+                "Depth Estimation"
+            ]
+        },
+        "official_url": "https://iau.edu.sa/research/ai-001"
     }
 ]
