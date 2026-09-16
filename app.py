@@ -79,6 +79,9 @@ if prompt := st.chat_input("اسألني عن أي شيء في حي ابتكار
                     reply = response_data.get("reply", "عذراً، لم أتمكن من صياغة الإجابة.")
                     category = response_data.get("category", "all")
                     
+                    # 1. الإصلاح الأهم: حفظ الإجابة في الذاكرة فوراً قبل أي شيء آخر!
+                    st.session_state.messages.append({"role": "assistant", "content": reply})
+                    
                     # ترجمة اسم القسم لعرضه بشكل جميل
                     category_names = {
                         "patents": "براءات الاختراع والتقنيات 💡",
@@ -94,19 +97,21 @@ if prompt := st.chat_input("اسألني عن أي شيء في حي ابتكار
                     
                     # عرض الإجابة بتنسيق يدعم اللغتين والاتجاهين بشكل سليم
                     st.markdown(f'<div dir="auto" style="text-align: justify;">{reply}</div>', unsafe_allow_html=True)
-                    # إنشاء مفتاح فريد لهذه الإجابة في ذاكرة الواجهة
-                    audio_key = f"audio_{len(st.session_state.messages)}"
+                    
+                    # 2. تحديد مفتاح الصوت بناءً على طول الرسائل (ناقص 1 لأننا أضفنا الرسالة للتو)
+                    audio_key = f"audio_{len(st.session_state.messages) - 1}"
                     
                     # إذا كان الصوت قد تم توليده وحفظه مسبقاً، اعرض مشغل الصوت مباشرة
                     if audio_key in st.session_state:
                         st.audio(st.session_state[audio_key], format="audio/mp3")
                     else:
                         # إذا لم يكن موجوداً، اعرض زر الاستماع
-                        if st.button("🎙️ استمع للإجابة", key=f"voice_btn_{len(st.session_state.messages)}"):
+                        if st.button("🎙️ استمع للإجابة", key=f"voice_btn_{len(st.session_state.messages) - 1}"):
                             with st.spinner("جاري توليد الصوت الاحترافي..."):
                                 try:
+                                    # 3. استخدام المتغير الديناميكي API_URL بدلاً من localhost
                                     speech_res = requests.post(
-                                        "http://localhost:8000/speak", 
+                                        f"{API_URL}/speak", 
                                         json={"text": reply}
                                     )
                                     if speech_res.status_code == 200:
@@ -119,8 +124,7 @@ if prompt := st.chat_input("اسألني عن أي شيء في حي ابتكار
                                         st.error("عذراً، حدث خطأ أثناء الاتصال بمحرك الصوت.")
                                 except Exception as e:
                                     st.error(f"فشل الاتصال بالخادم: {e}")
-                    st.session_state.messages.append({"role": "assistant", "content": reply})
                 else:
                     st.error("حدث خطأ أثناء جلب الإجابة من الخادم.")
             except Exception as e:
-                st.error("فشل الاتصال بالخادم. تأكد من أن سيرفر Render يعمل.")
+                st.error(f"فشل الاتصال بالخادم. تأكد من أن سيرفر Render يعمل. التفاصيل: {e}")
